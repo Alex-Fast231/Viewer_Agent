@@ -1,35 +1,53 @@
 FaSt-Doku Viewer – eigenständige Datei
 =========================================
-Stand: 2026-08-20, Version passend zu FaSt-Doku App 3.9.20
+Stand: 2026-08-22, Version passend zu FaSt App 3.9.27
 
 Dieser Viewer ist komplett eigenständig und braucht keine weiteren
 Dateien aus der Haupt-App. Er läuft lokal im Browser, ohne
 Internetverbindung, und liest die täglichen Backup-ZIPs ein, die die
-FaSt-Doku App automatisch per E-Mail an physio_fast@gmx.de schickt.
+FaSt App automatisch per E-Mail an physio_fast@gmx.de schickt.
 
 Enthaltene Dateien
 ------------------
 - index.html       Der eigentliche Viewer (im Browser öffnen)
 - zip-full.min.js  ZIP-Bibliothek, wird von index.html lokal geladen
 
+Neu in dieser Version
+----------------------
+- PIN-Sperre beim Öffnen: Sobald bereits Daten im Browser gespeichert
+  sind (aus zuvor eingespielten ZIPs), wird beim Öffnen des Viewers
+  zunächst eine PIN-Abfrage angezeigt (PIN: 1550), bevor irgendwelche
+  Patientendaten sichtbar werden - zusätzlich zur bereits bestehenden
+  PIN-Abfrage beim Einspielen einer neuen Backup-ZIP-Datei.
+- Neuer Tab "Kilometer": Übersicht aller Fahrten des Therapeuten,
+  getrennt nach "Noch nicht abgegeben" und "Bereits abgegeben".
+- Neuer Tab "Abgabelisten": alle gespeicherten Abgabelisten mit ihren
+  Positionen.
+- Der bisherige "Patienten"-Tab heißt jetzt "Einrichtung / Patient"
+  (Funktion unverändert).
+
 Nutzung
 -------
 1. Beide Dateien in denselben Ordner legen (wie in dieser ZIP).
 2. index.html im Browser öffnen (Doppelklick genügt, es ist keine
    Installation und kein Server nötig).
-3. Die per E-Mail erhaltene Backup-ZIP-Datei über "Datei laden"
-   auswählen und die PIN 1550 eingeben.
-4. Die Daten werden lokal im Browser gespeichert (localStorage) und
+3. Falls bereits Daten gespeichert sind: PIN 1550 eingeben, um die
+   Ansicht zu entsperren.
+4. Die per E-Mail erhaltene Backup-ZIP-Datei über "Datei laden"
+   auswählen und ebenfalls die PIN 1550 eingeben.
+5. Die Daten werden lokal im Browser gespeichert (localStorage) und
    bleiben beim nächsten Öffnen erhalten - neue Backups gleichen sich
    automatisch mit dem bisherigen Stand ab (neuere Daten überschreiben
    ältere, gelöschte Patienten werden als "inaktiv" markiert statt
-   entfernt).
+   entfernt, unterschiedliche Therapeuten werden addiert statt
+   ersetzt).
 
 Sicherheitshinweis
 -------------------
-Die Backup-ZIP ist nur mit einer einfachen 4-stelligen PIN (1550)
-geschützt, kein vollwertiges Passwort. Bitte die Backup-E-Mails und
-diesen Viewer entsprechend vertraulich behandeln.
+Die Backup-ZIP und der Viewer selbst sind nur mit einer einfachen
+4-stelligen PIN (1550) geschützt, kein vollwertiges Passwort. Bitte
+die Backup-E-Mails und diesen Viewer entsprechend vertraulich
+behandeln.
 
 Falls Sie den Viewer selbst online hosten möchten (z.B. für den
 Zugriff von mehreren Geräten): beide Dateien zusammen z.B. auf
