@@ -50,8 +50,13 @@
 </head>
 <body>
 <header>
-  <h1>FaSt-Doku Viewer</h1>
-  <p>Läuft lokal, ohne Internetverbindung. Lädt die täglichen, PIN-geschützten Backup-ZIPs aus der FaSt-Doku App ein. Gespeicherte Daten sind bei jedem Öffnen zusätzlich mit einer PIN gesperrt.</p>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+    <div>
+      <h1>FaSt-Doku Viewer</h1>
+      <p>Läuft lokal, ohne Internetverbindung. Lädt die täglichen, PIN-geschützten Backup-ZIPs aus der FaSt-Doku App ein. Gespeicherte Daten sind bei jedem Öffnen zusätzlich mit einer PIN gesperrt.</p>
+    </div>
+    <button id="hardRefreshBtn" class="secondary" style="flex-shrink:0; white-space:nowrap;">🔄 Aktualisieren</button>
+  </div>
 </header>
 <main id="app"></main>
 
@@ -615,13 +620,14 @@ function renderPatientDetailBody(therapist, home, patient) {
       <h4>Rezepte</h4>
       ${rezepte.length === 0 ? '<p class="muted">Keine Rezepte.</p>' : `
         <table>
-          <tr><th>Heilmittel</th><th>Anzahl</th><th>Ausstellung</th><th>Frist</th></tr>
+          <tr><th>Heilmittel</th><th>Anzahl</th><th>Ausstellung</th><th>Frist</th><th></th></tr>
           ${rezepte.map((r) => `
             <tr>
               <td>${esc((r.items || []).map((i) => i.type).join(", ") || "—")}</td>
               <td>${esc((r.items || []).map((i) => i.count).filter(Boolean).join(", ") || "—")}</td>
               <td>${esc(r.ausstell || "—")}</td>
-              <td>${esc(getRezeptFristSummary(r))}</td>
+              <td>${r.privat ? "—" : esc(getRezeptFristSummary(r))}</td>
+              <td>${r.privat ? '<span class="pill">🔒 Privat</span>' : ""}</td>
             </tr>
           `).join("")}
         </table>
@@ -870,6 +876,37 @@ function renderAerzteTab(therapist, doctors, search) {
   }).join("");
 }
 
+// Reiter "Befreiungen": Liste aller Patienten, die als zuzahlungsbefreit
+// markiert sind, über alle Einrichtungen des Therapeuten hinweg.
+function getBefreitePatientsForTherapist(therapist) {
+  const rows = [];
+  (therapist.homes || []).forEach((home) => {
+    (home.patients || []).forEach((patient) => {
+      if (patient.zuzahlungsstatus === "ja") rows.push({ home, patient });
+    });
+  });
+  return rows.sort((a, b) => `${a.patient.lastName} ${a.patient.firstName}`.localeCompare(`${b.patient.lastName} ${b.patient.firstName}`, "de"));
+}
+
+function renderBefreiungenTab(therapist) {
+  const rows = getBefreitePatientsForTherapist(therapist);
+  if (rows.length === 0) return '<p class="muted">Keine als zuzahlungsbefreit markierten Patienten.</p>';
+
+  const openPatients = getStateSet(uiState.openPatients, therapist.therapistId);
+  return rows.map(({ home, patient }) => {
+    const isOpen = openPatients.has(patient.patientId);
+    return `
+      <details class="accordion ${patient.inactive ? "inactive" : ""}" data-patient-id="${esc(patient.patientId)}" ${isOpen ? "open" : ""}>
+        <summary>
+          <span>${renderPatientSummaryLine(patient)}</span>
+          <span class="muted">${esc(home.name || "—")}</span>
+        </summary>
+        <div class="accordion-body">${renderPatientDetailBody(therapist, home, patient)}</div>
+      </details>
+    `;
+  }).join("");
+}
+
 // Reiter "Stunden": Tag- oder Zeitraum-Auswahl, Übersicht der im gewählten
 // Zeitraum tatsächlich geloggten Patienten-Zeiten sowie der Stundensaldo
 // (analog zur "Stundenkonto"-Funktion der Haupt-App).
@@ -915,22 +952,24 @@ function renderStundenTab(therapist) {
       ${summary.fastStartDatum ? `<p class="muted" style="margin-top:8px;">FaSt-Startdatum: ${esc(summary.fastStartDatum)} (nur Zeiten ab diesem Datum fließen in den Stundensaldo ein).</p>` : ""}
     </div>
 
-    <div class="card">
-      <h4 style="margin-top:0;">Patienten im gewählten Zeitraum</h4>
-      ${summary.patientRows.length === 0 ? '<p class="muted">Keine erfassten Zeiten im gewählten Zeitraum.</p>' : `
-        <table>
-          <tr><th>Patient</th><th>Geburtsdatum</th><th>Heim</th><th>Zeit gesamt</th></tr>
-          ${summary.patientRows.map((row) => `
-            <tr>
-              <td>${esc(row.patientName)}</td>
-              <td>${esc(row.birthDate || "—")}</td>
-              <td>${esc(row.homeName || "—")}</td>
-              <td>${esc(formatMinutesLabel(row.totalMinutes))}</td>
-            </tr>
-          `).join("")}
-        </table>
-      `}
-    </div>
+    ${mode === "tag" ? `
+      <div class="card">
+        <h4 style="margin-top:0;">Patienten am gewählten Tag</h4>
+        ${summary.patientRows.length === 0 ? '<p class="muted">Keine erfassten Zeiten an diesem Tag.</p>' : `
+          <table>
+            <tr><th>Patient</th><th>Geburtsdatum</th><th>Heim</th><th>Zeit gesamt</th></tr>
+            ${summary.patientRows.map((row) => `
+              <tr>
+                <td>${esc(row.patientName)}</td>
+                <td>${esc(row.birthDate || "—")}</td>
+                <td>${esc(row.homeName || "—")}</td>
+                <td>${esc(formatMinutesLabel(row.totalMinutes))}</td>
+              </tr>
+            `).join("")}
+          </table>
+        `}
+      </div>
+    ` : ""}
   `;
 }
 
@@ -966,6 +1005,8 @@ function renderTherapistBody(therapist) {
   } else if (tab === "aerzte") {
     const doctors = getAllDoctorsForTherapist(therapist);
     listHtml = renderAerzteTab(therapist, doctors, search);
+  } else if (tab === "befreiungen") {
+    listHtml = renderBefreiungenTab(therapist);
   } else if (tab === "kilometer") {
     listHtml = renderKilometerTab(therapist);
   } else if (tab === "abgabelisten") {
@@ -978,6 +1019,7 @@ function renderTherapistBody(therapist) {
     <div class="tab-row">
       <button class="tabBtn ${tab === "patienten" ? "active" : ""}" data-tab="patienten">Einrichtung / Patient</button>
       <button class="tabBtn ${tab === "aerzte" ? "active" : ""}" data-tab="aerzte">Ärzte</button>
+      <button class="tabBtn ${tab === "befreiungen" ? "active" : ""}" data-tab="befreiungen">Befreiungen</button>
     </div>
     <div class="tab-row">
       <button class="tabBtn ${tab === "kilometer" ? "active" : ""}" data-tab="kilometer">Kilometer</button>
@@ -1189,6 +1231,31 @@ renderGate();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
 }
+
+// "Aktualisieren"-Button: deregistriert einen eventuell veralteten Service
+// Worker, leert die Cache-Storage (unser eigener Worker legt zwar nichts
+// dort ab, ein älterer Browser-Stand könnte aber noch etwas hinterlassen
+// haben) und lädt die Seite mit einem Cache-Busting-Parameter neu, damit
+// garantiert die neueste, vom Server ausgelieferte Version geladen wird -
+// ein normales Neuladen kann sonst eine im HTTP-Cache liegende ältere
+// index.html erneut anzeigen, ohne dass eine neue Version durchkommt.
+document.getElementById("hardRefreshBtn").onclick = async () => {
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((reg) => reg.unregister()));
+    }
+    if ("caches" in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+    }
+  } catch (err) {
+    console.error("Aktualisieren: Cache/Service Worker konnten nicht vollständig geleert werden:", err);
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("_refresh", Date.now().toString());
+  window.location.replace(url.toString());
+};
 </script>
 </body>
 </html>
